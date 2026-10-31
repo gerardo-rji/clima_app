@@ -2,7 +2,7 @@ import axios from 'axios';
 import { z } from 'zod';
 // import { object, string, number, type InferOutput , parse } from 'valibot';
 import type { SearchType } from "../types";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
   // TYPE GUARD O ASSERTION
   /*function isWeatherResult(weather: unknown) : weather is Weather {
@@ -38,24 +38,44 @@ import { useState, useMemo } from "react";
   })
   type Weather = InferOutput<typeof WeatherShema>*/
 
+const initialState = {
+  name: '',
+  main: {
+    temp: 0,
+    temp_max: 0,
+    temp_min: 0
+  }
+}
+
 export default function useWeather() {
 
-  const [weather, setWeather] = useState<Weather>({
-    name: '',
-    main: {
-      temp: 0,
-      temp_max: 0,
-      temp_min: 0
-    }
-  })
+  const [weather, setWeather] = useState<Weather>(initialState)
+
+  const [loading, setLoading] = useState(false)
+
+  const [notFound, setNotFound] = useState(false)
+
+  useEffect(() => {
+    if (!notFound) return
+    const timer = setTimeout(() => setNotFound(false), 3000)
+    return () => clearTimeout(timer)
+  }, [notFound])
 
   const fetchWeather = async (search : SearchType) => {
+    setLoading(true);
+    setWeather(initialState);
+    setNotFound(false);
     try {
       const appId = import.meta.env.VITE_API_KEY
       const geoURL = `http://api.openweathermap.org/geo/1.0/direct?q=${search.city},${search.country}&appid=${appId}`
 
       const { data } = await axios(geoURL)
       console.log(data)
+
+      if(!data[0]) {
+        setNotFound(true);
+        return;
+      }
 
       const lat = data[0].lat
       const lon = data[0].lon
@@ -94,6 +114,8 @@ export default function useWeather() {
 
     } catch (error) {
       console.log(error);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -101,6 +123,8 @@ export default function useWeather() {
 
   return {
     weather,
+    loading,
+    notFound,
     fetchWeather,
     hasWeatherData
   }
